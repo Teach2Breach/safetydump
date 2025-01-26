@@ -10,3 +10,4 @@ edition = "2018"
 winapi = { version = "0.3", features = ["heapapi", "psapi", "winbase", "winerror", "winhttp"] }
 base64 = "0.13.0"
 obfstr = "0.3"
+random-string = "1.0.0"

